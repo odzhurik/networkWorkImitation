@@ -1,4 +1,14 @@
-<div *ngFor="let node of nodes;let index=index">
-<span>node #{{node.id}}</span>
+<div *ngFor="let node of network.nodes;let index=index">
+    <span [ngClass]="node.enabled ? 'enabled':'disabled'">node #{{node.id}}</span>
 </div>
-
+<button (click)="onDisableLeaderClick()">Disable leader</button>
+<div *ngIf="showToChooseStrategy">
+    <span>The leader is unavailable for now.</span>
+    <br>
+    <span>Plese choose the stategy for leader selection:</span>
+    <br>
+    <label>Bully election <input type="radio" [value]="leaderElectionStrategyType.bully" ngModel
+            (ngModelChange)="onElectionStrategyChange($event)" name="election"></label>
+    <label>Token Ring<input type="radio" [value]="leaderElectionStrategyType.ring" name="election" ngModel
+            (ngModelChange)="onElectionStrategyChange($event)"></label>
+</div>

@@ -1,33 +1,61 @@
+import { LeaderElectionStrategy } from "../strategy/leader-election-strategy";
+import { Observable } from "rxjs/Observable";
+import { Subject } from "rxjs/Subject";
 
 export class Node {
     public id: number;
     public isLeader: boolean;
-    public nodes: Node[];
+
+    public get nodes(): Node[] {
+        return this._nodes;
+    }
+
+    public get enabledNodes(): Node[] {
+        return this._nodes.filter(x => x.enabled);
+    }
+
+    public enabled: boolean;
+
+    public get leader(): Node {
+        return this.nodes.find(x => x.isLeader);
+    }
+
+    public get leaderElectionStrategy(): LeaderElectionStrategy {
+        return this._leaderElectionStrategy;
+    }
+
+    public set leaderElectionStrategy(strategy: LeaderElectionStrategy) {
+        this._leaderElectionStrategy = strategy;
+    }
+
     private workId: number;
-    private _capacity: number = 3;
+    private _nodes: Node[];
+    private _leaderElectionStrategy: LeaderElectionStrategy;
 
     constructor(init?: Partial<Node>) {
         Object.assign(this, init);
     }
 
-    public async sendRequest(): Promise<void> {
+    public sendRequest(): void {
         try {
-            const leaderNode = this.nodes.find(x => x.isLeader);
-            await leaderNode.getRequest(this.id.toString());
+            this.leader.getRequest(this.id);
         } catch (e) {
-            this.resumeWork();
-            this.nodes.forEach(node => node.resumeWork());
-            console.log(`Machine #${this.id} starts an election of new leader`);
-            this.bullyElection();
+            if (this.leaderElectionStrategy) {
+                this.stopWorking();
+                this.enabledNodes.forEach(node => node.stopWorking());
+
+                console.log(`Machine #${this.id} starts an election of new leader`);
+                this.leaderElectionStrategy.electLeader(this);
+            }
         }
     }
 
     public fillNodes(nodes: Node[]): void {
-        this.nodes = nodes;
+        this._nodes = nodes;
     }
 
     public startToWork(): void {
-        if (!this.isLeader) {
+        if (!this.isLeader && this.enabled) {
             let interval = Math.floor(Math.random() * 100000) + 10000;
             this.workId = window.setInterval(() => {
                 console.log(`Machine #${this.id} starts to work...`);
@@ -36,49 +64,25 @@ export class Node {
         }
     }
 
-    public resumeWork(): void {
+    public stopWorking(): void {
         window.clearInterval(this.workId);
-        console.log(`Machine ${this.id} resumes calls to leader`);
+        console.log(`Machine ${this.id} stops calls to leader`);
     }
 
-    public bullyElection(): void {
-        const nodesGreaterCurrent = this.nodes.filter(x => x.id > this.id).slice(0, 2);
-        this.sendRequestToNextNodes(this, nodesGreaterCurrent);
+    public disableNode(): void {
+        this.enabled = false;
     }
 
-    private async sendRequestToNextNodes(currentNode: Node, nodes: Node[]) {
-        for (let i = 0; i < nodes.length; i++) {
-            let current = nodes[i];
-            await current.getRequest(currentNode.toString())
-                .then(async () =>
-                    await this.sendRequestToNextNodes(current,
-                        current.nodes.filter(x => x.id > current.id).slice(0, 2)))
-                .catch(() => {
-                    currentNode.isLeader = true;
-                    console.log(`Machine #${currentNode.id} is leader now`);
-                    currentNode.nodes.forEach(node => {
-                        node.isLeader = false;
-                        node.startToWork();
-                    })
-                })
+    public getRequest(nodeId: number, message: string = null): boolean {
+        if (this.isLeader) {
+            if (!this.enabled) {
+                throw new Error("Not respond");
+            }
+            console.log(`${nodeId} asks #${this.id}`);
+            return true;
+        } else if (this.enabled) {
+            console.log(`Machine #${this.id} receives request from #${nodeId}`);
+            return true;
         }
-    }
-
-    public getRequest(message: string): Promise<void> {
-        return new Promise((resolve, reject) => {
-            if (this.isLeader) {
-                if (this._capacity < 0) {
-                    return reject(new Error("Not respond"));
-                }
-
-                console.log(`${message} asks #${this.id}`);
-                this._capacity--;
-            }
-            else {
-                console.log(`Machine #${this.id} receives request from #${message}`);
-                resolve();
-            }
-        });
-
     }
 }

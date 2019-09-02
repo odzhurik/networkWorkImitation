@@ -10,7 +10,7 @@ export class NodeService {
         let nodes = new Array<Node>();
 
         for (let i = 1; i <= 6; i++) {
-            const node = new Node({ id: i, isLeader: i === 6 });
+            const node = new Node({ id: i, isLeader: i === 6, enabled: true });
             nodes.push(node);
         }
         return nodes;
