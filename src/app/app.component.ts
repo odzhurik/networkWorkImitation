@@ -13,9 +13,7 @@ export class AppComponent implements OnInit {
     public network: Network;
     public leaderElectionStrategyType = LeaderElectionStrategyType;
 
-    public get showToChooseStrategy(): boolean {
-        return !this.network.nodes.find(x => x.isLeader).enabled;
-    }
+    public showToChooseStrategy: boolean = false;
 
     constructor(private nodeService: NodeService) { }
 
@@ -27,6 +25,7 @@ export class AppComponent implements OnInit {
 
     public onDisableLeaderClick(): void {
         this.network.nodes.find(x => x.isLeader).disableNode();
+        this.showToChooseStrategy = true;
     }
 
     public onElectionStrategyChange(value: LeaderElectionStrategyType): void {
@@ -34,5 +33,7 @@ export class AppComponent implements OnInit {
             const electionStrategy = LeaderElectionStrategyProvider.getStrategy(value);
             node.leaderElectionStrategy = electionStrategy;
         });
+
+        this.showToChooseStrategy = false;
     }
 }
